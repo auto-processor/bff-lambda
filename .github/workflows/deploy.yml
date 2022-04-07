@@ -1,0 +1,50 @@
+name: Deploy
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup AWS
+        uses: aws-actions/configure-aws-credentials@v1
+        with: 
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} 
+          aws-region: us-east-1
+      - name: Install Clojure and Babashka
+        run: brew install clojure/tools/clojure borkdude/brew/babashka
+      - name: Compile JAR
+        run: bb hl:compile
+      - name: Create native executable
+        run: bb hl:native:executable
+      - name: Upload to S3
+        run: "aws s3 cp ./.holy-lambda/build/latest.zip
+              s3://lambdas-auto-processor/bff-lambda/bff-lambda-${{ github.run_number }}.zip"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: auto-processor/definition
+      - run: pip install boto3
+      - name: Setup
+        uses: aws-actions/configure-aws-credentials@v1
+        with: 
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Run playbook
+        uses: dawidd6/action-ansible-playbook@v2
+        env:
+          GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        with:
+          playbook: services.yaml
+          inventory: |
+            localhost ansible_connection=local
