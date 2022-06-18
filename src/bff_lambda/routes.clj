@@ -31,7 +31,7 @@
                                 {:body   '("hello" "world")
                                  :status 200})}}]
       ["/byte-array-hello" {:get {:handler (fn [_req]
-                                             {:body   (ring-io/string-input-stream "Hello world" "utf-8")
+                                             {:body   (ring-io/string-input-stream "Hello world Carlos" "utf-8")
                                               :status 200})}}]
       ["/hello" {:description "Says Hello!"
                  :get         {:handler (fn [_req]
